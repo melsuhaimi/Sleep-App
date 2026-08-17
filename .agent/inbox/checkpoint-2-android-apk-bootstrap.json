@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "task_id": "checkpoint-2-android-apk-bootstrap",
+  "objective": "Prove a deterministic Android-to-debug-APK pipeline from an immutable Git commit without introducing AI engineering invocation.",
+  "acceptance": [
+    "A minimal legitimate Android application builds on GitHub-hosted CI.",
+    "The Gradle wrapper and distribution are integrity-bound to published SHA-256 checksums.",
+    "CI runs unit tests before assembling the debug APK.",
+    "The produced debug APK exists and is bound by evidence to the exact workflow Git SHA.",
+    "APK package metadata is readable and matches com.melsuhaimi.sleepapp.bootstrap.",
+    "APK signature verification succeeds.",
+    "The verified APK and machine-readable verification evidence are uploaded as workflow artifacts.",
+    "A deliberately broken Android build is demonstrated to fail CI and cannot produce a VERIFIED result.",
+    "No OpenAI API or AI engineering invocation is introduced in Checkpoint 2."
+  ],
+  "allowed_scope": [
+    "settings.gradle.kts",
+    "build.gradle.kts",
+    "gradle.properties",
+    "gradle/**",
+    "gradlew",
+    "gradlew.bat",
+    "app/**",
+    ".github/workflows/android-apk.yml",
+    ".agent/verification/**"
+  ],
+  "forbidden_scope": [
+    ".agent/bootstrap.py",
+    ".agent/controller.py",
+    ".agent/config.json",
+    ".agent/schemas/**",
+    ".agent/skills/**",
+    ".agent/tests/**",
+    "AGENTS.md"
+  ],
+  "required_verification": [
+    "harness-manifest",
+    "unit-tests",
+    "assembleDebug",
+    "apk-exists",
+    "apk-commit-binding",
+    "apk-metadata",
+    "apk-signature",
+    "artifact-upload",
+    "negative-build-failure"
+  ],
+  "context_paths": [
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/MainActivity.java",
+    ".github/workflows/android-apk.yml",
+    ".agent/verification/verify_apk.py"
+  ]
+}
