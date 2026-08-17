@@ -1,0 +1,288 @@
+name: Android APK Checkpoint 2
+
+on:
+  push:
+    branches:
+      - "agent/android-apk-bootstrap"
+  pull_request:
+    paths:
+      - "app/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".agent/verification/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_VERSION: "9.6.1"
+  GRADLE_DISTRIBUTION_SHA256: "9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14"
+  GRADLE_WRAPPER_JAR_SHA256: "497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7"
+  EXPECTED_APPLICATION_ID: "com.melsuhaimi.sleepapp.bootstrap"
+  CHECKPOINT_TASK: ".agent/inbox/checkpoint-2-android-apk-bootstrap.json"
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve immutable candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            sha="${{ github.event.pull_request.head.sha }}"
+          else
+            sha="${{ github.sha }}"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Assert checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          expected="${{ steps.candidate.outputs.sha }}"
+          test "$actual" = "$expected"
+
+      - name: Bootstrap Checkpoint 2 task and enforce mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$CHECKPOINT_TASK" \
+            --output .agent/runtime/checkpoint-2-manifest.json \
+            --changed-path settings.gradle.kts \
+            --changed-path build.gradle.kts \
+            --changed-path gradle.properties \
+            --changed-path app/build.gradle.kts \
+            --changed-path app/src/main/AndroidManifest.xml \
+            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java \
+            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/MainActivity.java \
+            --changed-path app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java \
+            --changed-path .agent/verification/verify_apk.py \
+            --changed-path .github/workflows/android-apk.yml
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/checkpoint-2-manifest.json
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Generate and verify Gradle Wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle wrapper \
+            --gradle-version "$GRADLE_VERSION" \
+            --distribution-type bin \
+            --gradle-distribution-sha256-sum "$GRADLE_DISTRIBUTION_SHA256"
+          test "$(sha256sum gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')" = "$GRADLE_WRAPPER_JAR_SHA256"
+          grep -F "distributionSha256Sum=$GRADLE_DISTRIBUTION_SHA256" gradle/wrapper/gradle-wrapper.properties
+          chmod +x gradlew
+          ./gradlew --version
+
+      - name: Install stable Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew test -PbuildCommit="${{ steps.candidate.outputs.sha }}" --stacktrace
+
+      - name: Assemble debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleDebug -PbuildCommit="${{ steps.candidate.outputs.sha }}" --stacktrace
+
+      - name: Verify APK and bind it to candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/verification/verify_apk.py \
+            --apk app/build/outputs/apk/debug/app-debug.apk \
+            --expected-commit "${{ steps.candidate.outputs.sha }}" \
+            --expected-application-id "$EXPECTED_APPLICATION_ID" \
+            --output .agent/runtime/apk-verification.json
+
+      - name: Upload verified APK evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: checkpoint-2-apk-${{ steps.candidate.outputs.sha }}
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            .agent/runtime/checkpoint-2-manifest.json
+            .agent/runtime/apk-verification.json
+          if-no-files-found: error
+          retention-days: 14
+
+  negative-build-control:
+    needs: build-and-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve immutable candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            sha="${{ github.event.pull_request.head.sha }}"
+          else
+            sha="${{ github.sha }}"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Assert checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
+
+      - name: Bootstrap Checkpoint 2 task
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$CHECKPOINT_TASK" \
+            --output .agent/runtime/checkpoint-2-negative-manifest.json
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/checkpoint-2-negative-manifest.json
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Generate verified Gradle Wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle wrapper \
+            --gradle-version "$GRADLE_VERSION" \
+            --distribution-type bin \
+            --gradle-distribution-sha256-sum "$GRADLE_DISTRIBUTION_SHA256"
+          test "$(sha256sum gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')" = "$GRADLE_WRAPPER_JAR_SHA256"
+          chmod +x gradlew
+
+      - name: Install stable Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Inject deliberate compile failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/IntentionalCompileFailure.java <<'BROKEN'
+          package com.melsuhaimi.sleepapp.bootstrap;
+          public final class IntentionalCompileFailure {
+              this is intentionally invalid Java
+          }
+          BROKEN
+
+      - name: Prove broken Android source is rejected
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          ./gradlew :app:compileDebugJavaWithJavac \
+            -PbuildCommit="${{ steps.candidate.outputs.sha }}" \
+            --stacktrace > negative-build.log 2>&1
+          rc=$?
+          set -e
+          if [[ $rc -eq 0 ]]; then
+            echo "ERROR: deliberately broken Java compiled successfully" >&2
+            exit 1
+          fi
+          grep -F "IntentionalCompileFailure.java" negative-build.log
+          if [[ -f .agent/runtime/apk-verification.json ]] && \
+             grep -F '"status": "VERIFIED"' .agent/runtime/apk-verification.json; then
+            echo "ERROR: broken build retained a VERIFIED evidence file" >&2
+            exit 1
+          fi
+          mkdir -p .agent/runtime
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          Path('.agent/runtime/negative-control.json').write_text(
+              json.dumps({
+                  'schema_version': 1,
+                  'status': 'EXPECTED_FAILURE',
+                  'failure_source': 'IntentionalCompileFailure.java',
+              }, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload negative-control evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: checkpoint-2-negative-control-${{ steps.candidate.outputs.sha }}
+          path: |
+            negative-build.log
+            .agent/runtime/checkpoint-2-negative-manifest.json
+            .agent/runtime/negative-control.json
+          if-no-files-found: error
+          retention-days: 14
