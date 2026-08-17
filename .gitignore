@@ -2,3 +2,6 @@
 !.agent/runtime/.gitkeep
 __pycache__/
 *.pyc
+.gradle/
+**/build/
+local.properties
