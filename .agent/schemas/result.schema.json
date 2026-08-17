@@ -1,22 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sleep-app.local/schemas/result.schema.json",
-  "title": "Future AI Engineering Result",
-  "description": "Reserved contract for the next harness phase; v1 does not invoke an AI.",
+  "title": "Bounded AI Engineering Proposal",
+  "description": "Strict model output. CANDIDATE is only a proposal; controller-owned verification determines whether it becomes a verified candidate.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "run_id",
-    "status"
+    "manifest_commit",
+    "status",
+    "summary",
+    "assumptions",
+    "unknowns",
+    "files_to_modify",
+    "verification_required",
+    "edits"
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "type": "integer",
+      "enum": [1]
     },
     "run_id": {
-      "type": "string",
-      "minLength": 1
+      "type": "string"
+    },
+    "manifest_commit": {
+      "type": "string"
     },
     "status": {
       "enum": [
@@ -27,28 +37,35 @@
         "BLOCKED"
       ]
     },
+    "summary": {
+      "type": "string"
+    },
     "assumptions": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": {"type": "string"}
     },
     "unknowns": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": {"type": "string"}
     },
     "files_to_modify": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": {"type": "string"}
     },
     "verification_required": {
       "type": "array",
+      "items": {"type": "string"}
+    },
+    "edits": {
+      "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "content"],
+        "properties": {
+          "path": {"type": "string"},
+          "content": {"type": "string"}
+        }
       }
     }
   }
