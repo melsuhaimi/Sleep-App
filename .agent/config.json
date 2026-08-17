@@ -1,10 +1,45 @@
 {
   "protocol_version": 1,
-  "phase": "bootstrap-only",
+  "phase": "bounded-ai",
   "required_root_instruction": "AGENTS.md",
   "max_mandatory_context_bytes": 65536,
   "max_instruction_file_bytes": 32768,
   "max_skill_file_bytes": 65536,
   "max_attempts_per_task": 4,
-  "max_same_failure_repeats": 2
+  "max_same_failure_repeats": 2,
+  "max_ai_context_file_bytes": 32768,
+  "max_ai_context_bytes": 131072,
+  "max_ai_edit_file_bytes": 65536,
+  "max_ai_total_edit_bytes": 196608,
+  "max_ai_output_tokens": 12000,
+  "openai_model": "gpt-5.6",
+  "openai_responses_url": "https://api.openai.com/v1/responses",
+  "openai_timeout_seconds": 90,
+  "verification_timeout_seconds": 900,
+  "max_verification_output_bytes": 32768,
+  "verification_gates": {
+    "harness-unit-tests": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      ".agent/tests",
+      "-p",
+      "test_*.py",
+      "-v"
+    ],
+    "android-unit-tests": [
+      "gradle",
+      "test",
+      "-PbuildCommit={commit}",
+      "--stacktrace"
+    ],
+    "android-assemble-debug": [
+      "gradle",
+      "assembleDebug",
+      "-PbuildCommit={commit}",
+      "--stacktrace"
+    ]
+  }
 }
