@@ -71,6 +71,13 @@ jobs:
           gradle-version: ${{ env.GRADLE_VERSION }}
           cache-provider: basic
 
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
       - name: Generate and verify Gradle Wrapper
         shell: bash
         run: |
@@ -88,10 +95,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
+          command -v sdkmanager
           sdkmanager "platforms;android-37" "build-tools;36.0.0"
           echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
 
       - name: Run unit tests
         shell: bash
@@ -162,6 +168,13 @@ jobs:
           gradle-version: ${{ env.GRADLE_VERSION }}
           cache-provider: basic
 
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
       - name: Generate verified Gradle Wrapper
         shell: bash
         run: |
@@ -177,7 +190,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
+          command -v sdkmanager
           sdkmanager "platforms;android-37" "build-tools;36.0.0"
 
       - name: Inject deliberate compile failure
