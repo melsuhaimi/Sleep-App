@@ -103,7 +103,7 @@ def main() -> int:
             fail(f"application id mismatch: {application_id!r}")
         if min_sdk != "26":
             fail(f"min SDK mismatch: {min_sdk!r}")
-        if target_sdk != "37":
+        if target_sdk != "36":
             fail(f"target SDK mismatch: {target_sdk!r}")
         if debuggable != "true":
             fail(f"debuggable flag mismatch: {debuggable!r}")

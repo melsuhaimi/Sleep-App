@@ -25,6 +25,7 @@ env:
   GRADLE_DISTRIBUTION_SHA256: "9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14"
   GRADLE_WRAPPER_JAR_SHA256: "497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7"
   EXPECTED_APPLICATION_ID: "com.melsuhaimi.sleepapp.bootstrap"
+  CHECKPOINT_TASK: ".agent/inbox/checkpoint-2-android-apk-bootstrap.json"
 
 jobs:
   build-and-verify:
@@ -59,6 +60,26 @@ jobs:
           expected="${{ steps.candidate.outputs.sha }}"
           test "$actual" = "$expected"
 
+      - name: Bootstrap Checkpoint 2 task and enforce mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$CHECKPOINT_TASK" \
+            --output .agent/runtime/checkpoint-2-manifest.json \
+            --changed-path settings.gradle.kts \
+            --changed-path build.gradle.kts \
+            --changed-path gradle.properties \
+            --changed-path app/build.gradle.kts \
+            --changed-path app/src/main/AndroidManifest.xml \
+            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java \
+            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/MainActivity.java \
+            --changed-path app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java \
+            --changed-path .agent/verification/verify_apk.py \
+            --changed-path .github/workflows/android-apk.yml
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/checkpoint-2-manifest.json
+
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
@@ -91,12 +112,12 @@ jobs:
           chmod +x gradlew
           ./gradlew --version
 
-      - name: Install Android SDK components
+      - name: Install stable Android SDK components
         shell: bash
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
           echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Run unit tests
@@ -127,6 +148,7 @@ jobs:
           name: checkpoint-2-apk-${{ steps.candidate.outputs.sha }}
           path: |
             app/build/outputs/apk/debug/app-debug.apk
+            .agent/runtime/checkpoint-2-manifest.json
             .agent/runtime/apk-verification.json
           if-no-files-found: error
           retention-days: 14
@@ -155,6 +177,22 @@ jobs:
         with:
           ref: ${{ steps.candidate.outputs.sha }}
           fetch-depth: 0
+
+      - name: Assert checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
+
+      - name: Bootstrap Checkpoint 2 task
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$CHECKPOINT_TASK" \
+            --output .agent/runtime/checkpoint-2-negative-manifest.json
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/checkpoint-2-negative-manifest.json
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -186,12 +224,12 @@ jobs:
           test "$(sha256sum gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')" = "$GRADLE_WRAPPER_JAR_SHA256"
           chmod +x gradlew
 
-      - name: Install Android SDK components
+      - name: Install stable Android SDK components
         shell: bash
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Inject deliberate compile failure
         shell: bash
@@ -244,6 +282,7 @@ jobs:
           name: checkpoint-2-negative-control-${{ steps.candidate.outputs.sha }}
           path: |
             negative-build.log
+            .agent/runtime/checkpoint-2-negative-manifest.json
             .agent/runtime/negative-control.json
           if-no-files-found: error
           retention-days: 14
