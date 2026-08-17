@@ -14,6 +14,8 @@ python3 .agent/controller.py --task <task.json> --output <manifest.json>
 
 Do not treat an engineering task as initialized until the controller returns `READY` and the produced manifest passes a second verification pass.
 
+A task may enter the bounded AI phase only through the same controller with `--run-ai`. The controller must build and independently re-verify the manifest before any live model request is possible.
+
 ## Authority order
 
 1. Exact Git commit and repository contents at that commit.
@@ -39,6 +41,24 @@ Do not treat an engineering task as initialized until the controller returns `RE
 - Candidate work belongs on a candidate branch or pull request. `main` is treated as known-good.
 - Anything important enough to enforce should be mechanical where practical, not prose-only.
 
+## Bounded AI execution
+
+Checkpoint 3 permits a model only after deterministic bootstrap. The model receives a bounded context package selected from the manifest and task context paths. It returns a strict structured proposal; it does not receive direct filesystem or shell access from the controller.
+
+For a `CANDIDATE` proposal:
+
+1. `run_id` and `manifest_commit` must match the current manifest exactly.
+2. `verification_required` must exactly match the task's required verification list.
+3. Proposed mutations are complete UTF-8 file replacements only; deletions are not accepted in this phase.
+4. Every proposed path is checked against `allowed_scope`, `forbidden_scope`, symlink boundaries, ignore rules, and configured byte limits before writing.
+5. The controller applies the proposal to a clean worktree, runs only repository-configured verification gates, and records deterministic evidence.
+6. Verification failure causes rollback before any retry. Identical failure repetition and total attempts are bounded by `.agent/config.json`.
+7. Only controller-owned evidence can produce `VERIFIED_CANDIDATE`. Model status `CANDIDATE` alone is not success.
+
+The stop statuses `NEEDS_MORE_CONTEXT`, `ARCHITECTURE_CONTRADICTION`, `UNKNOWN_ENVIRONMENT`, and `BLOCKED` must contain no edits and end the normal mutation loop.
+
+The `--fake-response` controller option is test-only. It exercises the same proposal validation, mutation, rollback, and verification path but **does not invoke OpenAI** and must never be reported as live AI evidence.
+
 ## Instruction discovery
 
 The harness always requires the repository-root `AGENTS.md`.
@@ -54,11 +74,11 @@ The resulting instruction set is ordered from least specific to most specific an
 
 Reusable engineering workflows live under `.agent/skills/` and are indexed by `.agent/skills/index.json`.
 
-The controller performs deterministic trigger matching and dependency expansion before any future AI invocation. A missing required Skill or dependency blocks the run.
+The controller performs deterministic trigger matching and dependency expansion before any AI invocation. A missing required Skill or dependency blocks the run.
 
 ## Stop states
 
-The deterministic controller may stop with machine-readable error codes. Future AI execution must additionally represent conditions such as:
+The deterministic controller may stop with machine-readable error codes. AI execution additionally represents:
 
 - `NEEDS_MORE_CONTEXT`
 - `ARCHITECTURE_CONTRADICTION`
