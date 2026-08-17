@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sleep-app.local/schemas/result.schema.json",
+  "title": "Future AI Engineering Result",
+  "description": "Reserved contract for the next harness phase; v1 does not invoke an AI.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "CANDIDATE",
+        "NEEDS_MORE_CONTEXT",
+        "ARCHITECTURE_CONTRADICTION",
+        "UNKNOWN_ENVIRONMENT",
+        "BLOCKED"
+      ]
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files_to_modify": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

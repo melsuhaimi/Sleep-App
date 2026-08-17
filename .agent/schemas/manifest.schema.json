@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sleep-app.local/schemas/manifest.schema.json",
+  "title": "Sleep App Context Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "run_id",
+    "status",
+    "phase",
+    "repo",
+    "task",
+    "instructions",
+    "skills",
+    "context_budget",
+    "policy"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "READY"
+    },
+    "phase": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "task": {
+      "type": "object"
+    },
+    "instructions": {
+      "type": "array"
+    },
+    "skills": {
+      "type": "array"
+    },
+    "context_budget": {
+      "type": "object"
+    },
+    "policy": {
+      "type": "object"
+    }
+  }
+}

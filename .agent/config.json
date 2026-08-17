@@ -1,0 +1,10 @@
+{
+  "protocol_version": 1,
+  "phase": "bootstrap-only",
+  "required_root_instruction": "AGENTS.md",
+  "max_mandatory_context_bytes": 65536,
+  "max_instruction_file_bytes": 32768,
+  "max_skill_file_bytes": 65536,
+  "max_attempts_per_task": 4,
+  "max_same_failure_repeats": 2
+}
