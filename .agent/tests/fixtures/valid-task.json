@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "task_id": "harness-self-check",
+  "objective": "Validate the deterministic engineering harness bootstrap",
+  "acceptance": [
+    "Bootstrap produces a manifest bound to the current Git commit",
+    "The manifest can be verified again without drift"
+  ],
+  "allowed_scope": [
+    ".agent/**",
+    ".github/workflows/agent-harness-check.yml",
+    "AGENTS.md"
+  ],
+  "forbidden_scope": [
+    "app/**"
+  ],
+  "required_verification": [
+    "harness-unit-tests",
+    "manifest-reverification"
+  ],
+  "context_paths": [
+    ".agent/controller.py"
+  ]
+}

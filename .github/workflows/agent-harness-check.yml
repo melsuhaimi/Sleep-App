@@ -1,0 +1,52 @@
+name: Agent Harness Check
+
+on:
+  push:
+    branches:
+      - main
+      - "agent/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-harness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Show Python version
+        run: python3 --version
+
+      - name: Run harness unit tests
+        run: python3 -m unittest discover -s .agent/tests -p 'test_*.py' -v
+
+      - name: Generate context manifest
+        run: |
+          python3 .agent/controller.py \
+            --task .agent/tests/fixtures/valid-task.json \
+            --output .agent/runtime/manifest.json
+
+      - name: Re-verify context manifest
+        run: |
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/manifest.json
+
+      - name: Upload manifest evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: harness-manifest-${{ github.sha }}
+          path: .agent/runtime/manifest.json
+          if-no-files-found: error
+          retention-days: 7
