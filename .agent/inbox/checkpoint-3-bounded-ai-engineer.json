@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "task_id": "checkpoint-3-bounded-ai-engineer",
+  "objective": "Add a controller-owned bounded AI engineering step behind the existing deterministic bootstrap and manifest verification boundary.",
+  "acceptance": [
+    "The model cannot be invoked until the current manifest has been independently re-verified.",
+    "Live model calls use the OpenAI Responses API with strict structured output and repository-configured bounds.",
+    "Every proposal is bound to the manifest run_id and exact Git commit before mutation.",
+    "Only full-file replacements inside allowed_scope can be applied; forbidden, ignored, symlinked, oversized, or unexpected mutations are rejected.",
+    "Required verification gates are controller-owned and cannot be removed or altered by model output.",
+    "Failed candidate verification is rolled back before a bounded retry; repeated identical failure and retry exhaustion stop deterministically.",
+    "NEEDS_MORE_CONTEXT, ARCHITECTURE_CONTRADICTION, UNKNOWN_ENVIRONMENT, and BLOCKED stop without repository mutation.",
+    "Missing credentials, malformed output, model unavailability, stale manifests, dirty worktrees, and unknown verification gates stop safely.",
+    "A network-free fixture path exercises the same mutation and verification controller on a tiny Android bootstrap change without claiming a live OpenAI invocation.",
+    "Checkpoint 3 remains isolated on a candidate branch and draft pull request until its CI evidence is reviewed."
+  ],
+  "allowed_scope": [
+    "AGENTS.md",
+    ".gitignore",
+    ".agent/controller.py",
+    ".agent/ai_engineer.py",
+    ".agent/config.json",
+    ".agent/schemas/result.schema.json",
+    ".agent/inbox/checkpoint-3-bounded-ai-engineer.json",
+    ".agent/tests/test_ai_engineer.py",
+    ".agent/tests/fixtures/checkpoint-3-ai-probe-task.json",
+    ".agent/tests/fixtures/checkpoint-3-ai-probe-response.json",
+    ".github/workflows/checkpoint-3-ai.yml"
+  ],
+  "forbidden_scope": [
+    "app/**",
+    "gradle/**",
+    "gradlew",
+    "gradlew.bat",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "gradle.properties",
+    ".agent/bootstrap.py"
+  ],
+  "required_verification": [
+    "harness-unit-tests"
+  ],
+  "context_paths": [
+    ".agent/controller.py",
+    ".agent/ai_engineer.py",
+    ".agent/config.json",
+    ".agent/schemas/result.schema.json",
+    ".github/workflows/checkpoint-3-ai.yml"
+  ]
+}
