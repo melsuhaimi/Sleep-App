@@ -61,7 +61,6 @@ def main() -> int:
                 "skill_count": len(manifest["skills"]),
                 "mandatory_context_bytes": manifest["context_budget"]["mandatory_bytes"],
                 "proposal_applied": False,
-                "ai_invoked": False,
             })
             return 0
 
@@ -77,7 +76,6 @@ def main() -> int:
             **outcome,
             "phase": manifest["phase"],
             "proposal_applied": outcome.get("status") == "VERIFIED_CANDIDATE",
-            "ai_invoked": False,
         })
         return 0 if outcome["status"] == "VERIFIED_CANDIDATE" else 3
     except HarnessError as exc:
@@ -86,7 +84,6 @@ def main() -> int:
             "code": exc.code,
             "message": exc.message,
             "details": exc.details,
-            "ai_invoked": False,
         })
         return 2
 
