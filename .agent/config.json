@@ -1,10 +1,39 @@
 {
   "protocol_version": 1,
-  "phase": "bootstrap-only",
+  "phase": "proposal-verification",
   "required_root_instruction": "AGENTS.md",
   "max_mandatory_context_bytes": 65536,
   "max_instruction_file_bytes": 32768,
   "max_skill_file_bytes": 65536,
   "max_attempts_per_task": 4,
-  "max_same_failure_repeats": 2
+  "max_same_failure_repeats": 2,
+  "max_proposal_edit_file_bytes": 65536,
+  "max_proposal_total_edit_bytes": 196608,
+  "verification_timeout_seconds": 900,
+  "max_verification_output_bytes": 32768,
+  "verification_gates": {
+    "harness-unit-tests": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      ".agent/tests",
+      "-p",
+      "test_*.py",
+      "-v"
+    ],
+    "android-unit-tests": [
+      "gradle",
+      "test",
+      "-PbuildCommit={commit}",
+      "--stacktrace"
+    ],
+    "android-assemble-debug": [
+      "gradle",
+      "assembleDebug",
+      "-PbuildCommit={commit}",
+      "--stacktrace"
+    ]
+  }
 }

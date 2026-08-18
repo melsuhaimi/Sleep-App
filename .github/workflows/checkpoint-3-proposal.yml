@@ -1,0 +1,215 @@
+name: Checkpoint 3 Proposal Verification
+
+on:
+  push:
+    branches:
+      - "agent/bounded-ai-engineer"
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - ".gitignore"
+      - ".agent/**"
+      - ".github/workflows/checkpoint-3-proposal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checkpoint-3-proposal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHECKPOINT_TASK: ".agent/inbox/checkpoint-3-proposal-verification.json"
+  PROBE_TASK: ".agent/tests/fixtures/checkpoint-3-proposal-probe-task.json"
+  PROBE_TEMPLATE: ".agent/tests/fixtures/checkpoint-3-proposal-probe-template.json"
+  GRADLE_VERSION: "9.6.1"
+
+jobs:
+  contract-and-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve immutable candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            sha="${{ github.event.pull_request.head.sha }}"
+          else
+            sha="${{ github.sha }}"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Assert checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
+
+      - name: Run harness and proposal-verification unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s .agent/tests -p 'test_*.py' -v
+
+      - name: Bootstrap Checkpoint 3 and enforce complete diff scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          mapfile -t changed < <(git diff --name-only origin/main...HEAD)
+          test "${#changed[@]}" -gt 0
+          args=()
+          for path in "${changed[@]}"; do
+            args+=(--changed-path "$path")
+          done
+          python3 .agent/controller.py \
+            --task "$CHECKPOINT_TASK" \
+            --output .agent/runtime/checkpoint-3-manifest.json \
+            "${args[@]}"
+          python3 .agent/controller.py \
+            --verify-manifest .agent/runtime/checkpoint-3-manifest.json
+
+      - name: Upload controller manifest evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: checkpoint-3-manifest-${{ steps.candidate.outputs.sha }}
+          path: .agent/runtime/checkpoint-3-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  deterministic-android-probe:
+    needs: contract-and-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve immutable candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            sha="${{ github.event.pull_request.head.sha }}"
+          else
+            sha="${{ github.sha }}"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Assert checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install stable Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Build manifest-bound external proposal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$PROBE_TASK" \
+            --output .agent/runtime/checkpoint-3-probe-manifest.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('.agent/runtime/checkpoint-3-probe-manifest.json').read_text())
+          proposal = json.loads(Path('.agent/tests/fixtures/checkpoint-3-proposal-probe-template.json').read_text())
+          proposal['run_id'] = manifest['run_id']
+          proposal['manifest_commit'] = manifest['repo']['commit']
+          Path('.agent/runtime/checkpoint-3-probe-proposal.json').write_text(
+              json.dumps(proposal, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Exercise external-proposal mutation and verification path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$PROBE_TASK" \
+            --proposal .agent/runtime/checkpoint-3-probe-proposal.json \
+            --result .agent/runtime/checkpoint-3-probe-result.json \
+            --evidence .agent/runtime/checkpoint-3-probe-evidence.json
+
+      - name: Verify probe evidence and rollback cleanliness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(Path('.agent/runtime/checkpoint-3-probe-evidence.json').read_text())
+          assert evidence['status'] == 'VERIFIED_CANDIDATE', evidence
+          assert evidence['source'] == 'external-proposal', evidence
+          assert 'model' not in evidence, evidence
+          assert 'request_attempted' not in evidence, evidence
+          assert evidence['manifest_commit'] == '${{ steps.candidate.outputs.sha }}', evidence
+          assert evidence['verified_paths'] == [
+              'app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java',
+              'app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java',
+          ], evidence
+          PY
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | grep -Fx 'app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java'
+          printf '%s\n' "${changed[@]}" | grep -Fx 'app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java'
+          grep -F 'Sleep App Proposal Harness Probe' app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java
+          git restore --worktree -- .
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Upload deterministic probe evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: checkpoint-3-probe-${{ steps.candidate.outputs.sha }}
+          path: |
+            .agent/runtime/checkpoint-3-probe-manifest.json
+            .agent/runtime/checkpoint-3-probe-proposal.json
+            .agent/runtime/checkpoint-3-probe-result.json
+            .agent/runtime/checkpoint-3-probe-evidence.json
+          if-no-files-found: error
+          retention-days: 14

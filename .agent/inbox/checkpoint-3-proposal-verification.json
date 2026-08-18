@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "task_id": "checkpoint-3-proposal-verification",
+  "objective": "Add a deterministic controller boundary that accepts externally authored engineering proposals, applies only validated mutations, and owns verification without invoking a second model.",
+  "acceptance": [
+    "The repository controller never invokes an AI model or requires model-provider credentials.",
+    "A proposal is accepted only after the current manifest has been independently re-verified.",
+    "Every proposal is bound to the manifest run_id and exact Git commit before mutation.",
+    "Only full-file replacements inside allowed_scope can be applied; forbidden, ignored, symlinked, oversized, or unexpected mutations are rejected.",
+    "Required verification gates are controller-owned and cannot be removed or altered by proposal content.",
+    "Failed candidate verification is rolled back immediately; revised proposals are separate external engineering iterations rather than controller-owned model retries.",
+    "NEEDS_MORE_CONTEXT, ARCHITECTURE_CONTRADICTION, UNKNOWN_ENVIRONMENT, and BLOCKED stop without repository mutation.",
+    "Missing or malformed proposals, stale manifests, dirty worktrees, unknown verification gates, and verifier-created mutations stop safely.",
+    "A deterministic external-proposal fixture exercises the same mutation and verification controller on a tiny Android bootstrap change without any model or network call.",
+    "Checkpoint 3 remains isolated on a candidate branch and draft pull request until its exact-head CI evidence is reviewed."
+  ],
+  "allowed_scope": [
+    "AGENTS.md",
+    ".gitignore",
+    ".agent/controller.py",
+    ".agent/proposal_support.py",
+    ".agent/proposal_verifier.py",
+    ".agent/proposal_contract.py",
+    ".agent/proposal_runner.py",
+    ".agent/config.json",
+    ".agent/schemas/result.schema.json",
+    ".agent/inbox/checkpoint-3-proposal-verification.json",
+    ".agent/tests/test_proposal_runner.py",
+    ".agent/tests/fixtures/checkpoint-3-proposal-probe-task.json",
+    ".agent/tests/fixtures/checkpoint-3-proposal-probe-template.json",
+    ".github/workflows/checkpoint-3-proposal.yml"
+  ],
+  "forbidden_scope": [
+    "app/**",
+    "gradle/**",
+    "gradlew",
+    "gradlew.bat",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "gradle.properties",
+    ".agent/bootstrap.py"
+  ],
+  "required_verification": [
+    "harness-unit-tests"
+  ],
+  "context_paths": [
+    ".agent/controller.py",
+    ".agent/proposal_support.py",
+    ".agent/proposal_verifier.py",
+    ".agent/proposal_contract.py",
+    ".agent/proposal_runner.py",
+    ".agent/config.json",
+    ".agent/schemas/result.schema.json",
+    ".agent/tests/test_proposal_runner.py",
+    ".github/workflows/checkpoint-3-proposal.yml"
+  ]
+}

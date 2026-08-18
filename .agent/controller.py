@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic control-plane entrypoint for Harness v1.
-
-Harness v1 intentionally does NOT invoke an AI model. It proves the bootstrap
-boundary first.
-"""
+"""Deterministic control-plane entrypoint for the Sleep App engineering harness."""
 
 from __future__ import annotations
 
@@ -12,14 +8,7 @@ import json
 from pathlib import Path
 import sys
 
-from bootstrap import (
-    HarnessError,
-    assert_paths_allowed,
-    build_manifest,
-    read_json,
-    verify_manifest,
-    write_json_atomic,
-)
+from bootstrap import HarnessError, assert_paths_allowed, build_manifest, fail, read_json, verify_manifest, write_json_atomic
 
 
 def emit(value: dict) -> None:
@@ -32,31 +21,26 @@ def main() -> int:
     mode.add_argument("--task", help="Task envelope JSON path")
     mode.add_argument("--verify-manifest", help="Existing manifest JSON path")
     parser.add_argument("--output", help="Write generated manifest to this path")
-    parser.add_argument(
-        "--changed-path",
-        action="append",
-        default=[],
-        help="Candidate changed path to check against task mutation scope; repeatable",
-    )
+    parser.add_argument("--changed-path", action="append", default=[], help="Candidate changed path to enforce; repeatable")
+    parser.add_argument("--proposal", help="Externally authored proposal JSON to validate, apply, and verify")
+    parser.add_argument("--result", help="Write the validated proposal JSON")
+    parser.add_argument("--evidence", help="Write controller-owned execution evidence JSON")
     args = parser.parse_args()
 
     try:
         if args.verify_manifest:
+            if args.proposal or args.result or args.evidence:
+                fail("INVALID_CLI", "proposal execution flags require --task")
             manifest = read_json(Path(args.verify_manifest))
             verify_manifest(manifest)
-            emit(
-                {
-                    "status": "READY",
-                    "check": "manifest-current",
-                    "run_id": manifest.get("run_id"),
-                }
-            )
+            emit({"status": "READY", "check": "manifest-current", "run_id": manifest.get("run_id")})
             return 0
 
-        manifest = build_manifest(args.task)
-        # Re-verify immediately so creation and verification are independent steps.
-        verify_manifest(manifest)
+        if (args.result or args.evidence) and not args.proposal:
+            fail("INVALID_CLI", "--result and --evidence require --proposal")
 
+        manifest = build_manifest(args.task)
+        verify_manifest(manifest)
         if args.changed_path:
             task = manifest["task"]
             assert_paths_allowed(
@@ -64,12 +48,11 @@ def main() -> int:
                 allowed_scope=task["allowed_scope"],
                 forbidden_scope=task.get("forbidden_scope", []),
             )
-
         if args.output:
             write_json_atomic(Path(args.output), manifest)
 
-        emit(
-            {
+        if not args.proposal:
+            emit({
                 "status": "READY",
                 "phase": manifest["phase"],
                 "run_id": manifest["run_id"],
@@ -77,20 +60,31 @@ def main() -> int:
                 "instruction_count": len(manifest["instructions"]),
                 "skill_count": len(manifest["skills"]),
                 "mandatory_context_bytes": manifest["context_budget"]["mandatory_bytes"],
-                "ai_invoked": False,
-            }
+                "proposal_applied": False,
+            })
+            return 0
+
+        from proposal_runner import run_proposal
+
+        outcome = run_proposal(
+            manifest,
+            proposal_path=args.proposal,
+            result_path=args.result,
+            evidence_path=args.evidence,
         )
-        return 0
+        emit({
+            **outcome,
+            "phase": manifest["phase"],
+            "proposal_applied": outcome.get("status") == "VERIFIED_CANDIDATE",
+        })
+        return 0 if outcome["status"] == "VERIFIED_CANDIDATE" else 3
     except HarnessError as exc:
-        emit(
-            {
-                "status": "BLOCKED",
-                "code": exc.code,
-                "message": exc.message,
-                "details": exc.details,
-                "ai_invoked": False,
-            }
-        )
+        emit({
+            "status": "BLOCKED",
+            "code": exc.code,
+            "message": exc.message,
+            "details": exc.details,
+        })
         return 2
 
 

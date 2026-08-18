@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "task_id": "checkpoint-3-proposal-probe",
+  "objective": "Temporarily change the bootstrap screen contract from Sleep App APK Bootstrap to Sleep App Proposal Harness Probe and update its unit test.",
+  "acceptance": [
+    "Only the bootstrap contract source and its unit test change.",
+    "Android unit tests pass after the proposed change.",
+    "The debug Android application still assembles successfully."
+  ],
+  "allowed_scope": [
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java",
+    "app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java"
+  ],
+  "forbidden_scope": [
+    ".agent/**",
+    ".github/**",
+    "app/src/main/AndroidManifest.xml",
+    "app/build.gradle.kts"
+  ],
+  "required_verification": [
+    "android-unit-tests",
+    "android-assemble-debug"
+  ],
+  "context_paths": [
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java",
+    "app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java"
+  ]
+}
