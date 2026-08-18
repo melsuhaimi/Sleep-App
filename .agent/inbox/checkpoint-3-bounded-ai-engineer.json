@@ -4,13 +4,13 @@
   "objective": "Add a controller-owned bounded AI engineering step behind the existing deterministic bootstrap and manifest verification boundary.",
   "acceptance": [
     "The model cannot be invoked until the current manifest has been independently re-verified.",
-    "Live model calls use the OpenAI Responses API with strict structured output and repository-configured bounds.",
+    "Live model calls use the OpenAI Responses API with strict structured output, store disabled, and repository-configured bounds.",
     "Every proposal is bound to the manifest run_id and exact Git commit before mutation.",
     "Only full-file replacements inside allowed_scope can be applied; forbidden, ignored, symlinked, oversized, or unexpected mutations are rejected.",
     "Required verification gates are controller-owned and cannot be removed or altered by model output.",
     "Failed candidate verification is rolled back before a bounded retry; repeated identical failure and retry exhaustion stop deterministically.",
     "NEEDS_MORE_CONTEXT, ARCHITECTURE_CONTRADICTION, UNKNOWN_ENVIRONMENT, and BLOCKED stop without repository mutation.",
-    "Missing credentials, malformed output, model unavailability, stale manifests, dirty worktrees, and unknown verification gates stop safely.",
+    "Missing credentials, malformed output, model unavailability, stale manifests, dirty worktrees, unknown verification gates, and verifier-created mutations stop safely.",
     "A network-free fixture path exercises the same mutation and verification controller on a tiny Android bootstrap change without claiming a live OpenAI invocation.",
     "Checkpoint 3 remains isolated on a candidate branch and draft pull request until its CI evidence is reviewed."
   ],
@@ -18,6 +18,10 @@
     "AGENTS.md",
     ".gitignore",
     ".agent/controller.py",
+    ".agent/ai_support.py",
+    ".agent/ai_verifier.py",
+    ".agent/ai_contract.py",
+    ".agent/ai_openai.py",
     ".agent/ai_engineer.py",
     ".agent/config.json",
     ".agent/schemas/result.schema.json",
@@ -42,9 +46,14 @@
   ],
   "context_paths": [
     ".agent/controller.py",
+    ".agent/ai_support.py",
+    ".agent/ai_verifier.py",
+    ".agent/ai_contract.py",
+    ".agent/ai_openai.py",
     ".agent/ai_engineer.py",
     ".agent/config.json",
     ".agent/schemas/result.schema.json",
+    ".agent/tests/test_ai_engineer.py",
     ".github/workflows/checkpoint-3-ai.yml"
   ]
 }
