@@ -12,6 +12,7 @@
   "max_ai_edit_file_bytes": 65536,
   "max_ai_total_edit_bytes": 196608,
   "max_ai_output_tokens": 12000,
+  "max_openai_response_bytes": 1048576,
   "openai_model": "gpt-5.6",
   "openai_responses_url": "https://api.openai.com/v1/responses",
   "openai_timeout_seconds": 90,
