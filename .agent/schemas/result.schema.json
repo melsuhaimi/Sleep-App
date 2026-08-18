@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sleep-app.local/schemas/result.schema.json",
-  "title": "Bounded AI Engineering Proposal",
-  "description": "Strict model output. CANDIDATE is only a proposal; controller-owned verification determines whether it becomes a verified candidate.",
+  "title": "Engineering Proposal",
+  "description": "Strict externally authored proposal. CANDIDATE is only a proposal; controller-owned verification determines whether it becomes a verified candidate.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,9 +18,18 @@
     "edits"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "enum": [1]},
-    "run_id": {"type": "string"},
-    "manifest_commit": {"type": "string"},
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "manifest_commit": {
+      "type": "string"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -31,20 +40,49 @@
         "BLOCKED"
       ]
     },
-    "summary": {"type": "string"},
-    "assumptions": {"type": "array", "items": {"type": "string"}},
-    "unknowns": {"type": "array", "items": {"type": "string"}},
-    "files_to_modify": {"type": "array", "items": {"type": "string"}},
-    "verification_required": {"type": "array", "items": {"type": "string"}},
+    "summary": {
+      "type": "string"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files_to_modify": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "edits": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "content"],
+        "required": [
+          "path",
+          "content"
+        ],
         "properties": {
-          "path": {"type": "string"},
-          "content": {"type": "string"}
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
         }
       }
     }

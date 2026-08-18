@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "task_id": "checkpoint-3-ai-probe",
-  "objective": "Temporarily change the bootstrap screen contract from Sleep App APK Bootstrap to Sleep App AI Harness Probe and update its unit test.",
+  "task_id": "checkpoint-3-proposal-probe",
+  "objective": "Temporarily change the bootstrap screen contract from Sleep App APK Bootstrap to Sleep App Proposal Harness Probe and update its unit test.",
   "acceptance": [
     "Only the bootstrap contract source and its unit test change.",
     "Android unit tests pass after the proposed change.",

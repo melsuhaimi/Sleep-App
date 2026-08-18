@@ -1,4 +1,4 @@
-name: Checkpoint 3 Bounded AI
+name: Checkpoint 3 Proposal Verification
 
 on:
   push:
@@ -9,20 +9,20 @@ on:
       - "AGENTS.md"
       - ".gitignore"
       - ".agent/**"
-      - ".github/workflows/checkpoint-3-ai.yml"
+      - ".github/workflows/checkpoint-3-proposal.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: checkpoint-3-ai-${{ github.workflow }}-${{ github.ref }}
+  group: checkpoint-3-proposal-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  CHECKPOINT_TASK: ".agent/inbox/checkpoint-3-bounded-ai-engineer.json"
-  PROBE_TASK: ".agent/tests/fixtures/checkpoint-3-ai-probe-task.json"
-  PROBE_RESPONSE: ".agent/tests/fixtures/checkpoint-3-ai-probe-response.json"
+  CHECKPOINT_TASK: ".agent/inbox/checkpoint-3-proposal-verification.json"
+  PROBE_TASK: ".agent/tests/fixtures/checkpoint-3-proposal-probe-task.json"
+  PROBE_TEMPLATE: ".agent/tests/fixtures/checkpoint-3-proposal-probe-template.json"
   GRADLE_VERSION: "9.6.1"
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
 
-      - name: Run harness and bounded-AI unit tests
+      - name: Run harness and proposal-verification unit tests
         shell: bash
         run: |
           set -euo pipefail
@@ -145,17 +145,35 @@ jobs:
           command -v sdkmanager
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Exercise fake-response mutation and verification path
+      - name: Build manifest-bound external proposal
         shell: bash
         run: |
           set -euo pipefail
           python3 .agent/controller.py \
             --task "$PROBE_TASK" \
-            --output .agent/runtime/checkpoint-3-probe-manifest.json \
-            --run-ai \
+            --output .agent/runtime/checkpoint-3-probe-manifest.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('.agent/runtime/checkpoint-3-probe-manifest.json').read_text())
+          proposal = json.loads(Path('.agent/tests/fixtures/checkpoint-3-proposal-probe-template.json').read_text())
+          proposal['run_id'] = manifest['run_id']
+          proposal['manifest_commit'] = manifest['repo']['commit']
+          Path('.agent/runtime/checkpoint-3-probe-proposal.json').write_text(
+              json.dumps(proposal, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Exercise external-proposal mutation and verification path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$PROBE_TASK" \
+            --proposal .agent/runtime/checkpoint-3-probe-proposal.json \
             --result .agent/runtime/checkpoint-3-probe-result.json \
-            --evidence .agent/runtime/checkpoint-3-probe-evidence.json \
-            --fake-response "$PROBE_RESPONSE"
+            --evidence .agent/runtime/checkpoint-3-probe-evidence.json
 
       - name: Verify probe evidence and rollback cleanliness
         shell: bash
@@ -167,7 +185,9 @@ jobs:
 
           evidence = json.loads(Path('.agent/runtime/checkpoint-3-probe-evidence.json').read_text())
           assert evidence['status'] == 'VERIFIED_CANDIDATE', evidence
-          assert evidence['request_attempted'] is False, evidence
+          assert evidence['source'] == 'external-proposal', evidence
+          assert 'model' not in evidence, evidence
+          assert 'request_attempted' not in evidence, evidence
           assert evidence['manifest_commit'] == '${{ steps.candidate.outputs.sha }}', evidence
           assert evidence['verified_paths'] == [
               'app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java',
@@ -178,7 +198,7 @@ jobs:
           test "${#changed[@]}" -eq 2
           printf '%s\n' "${changed[@]}" | grep -Fx 'app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java'
           printf '%s\n' "${changed[@]}" | grep -Fx 'app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java'
-          grep -F 'Sleep App AI Harness Probe' app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java
+          grep -F 'Sleep App Proposal Harness Probe' app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java
           git restore --worktree -- .
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
@@ -188,6 +208,7 @@ jobs:
           name: checkpoint-3-probe-${{ steps.candidate.outputs.sha }}
           path: |
             .agent/runtime/checkpoint-3-probe-manifest.json
+            .agent/runtime/checkpoint-3-probe-proposal.json
             .agent/runtime/checkpoint-3-probe-result.json
             .agent/runtime/checkpoint-3-probe-evidence.json
           if-no-files-found: error
