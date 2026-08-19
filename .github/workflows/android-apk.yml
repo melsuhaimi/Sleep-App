@@ -113,7 +113,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0"
           echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Run unit tests
@@ -231,7 +231,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0"
 
       - name: Inject deliberate compile failure
         shell: bash
