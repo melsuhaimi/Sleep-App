@@ -1,9 +1,9 @@
-name: Android APK Checkpoint 2
+name: Android Build Skeleton
 
 on:
   push:
     branches:
-      - "agent/android-apk-bootstrap"
+      - "agent/p1-compose-build-skeleton"
   pull_request:
     paths:
       - "app/**"
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-apk-${{ github.workflow }}-${{ github.ref }}
+  group: android-build-skeleton-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -30,7 +30,7 @@ env:
 jobs:
   build-and-verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Resolve immutable candidate SHA
@@ -56,29 +56,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          expected="${{ steps.candidate.outputs.sha }}"
-          test "$actual" = "$expected"
+          test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
 
-      - name: Bootstrap Checkpoint 2 task and enforce mutation scope
+      - name: Bootstrap Android task and enforce complete diff scope
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main
+          mapfile -t changed < <(git diff --name-only origin/main...HEAD)
+          test "${#changed[@]}" -gt 0
+          args=()
+          for path in "${changed[@]}"; do
+            args+=(--changed-path "$path")
+          done
           python3 .agent/controller.py \
             --task "$CHECKPOINT_TASK" \
-            --output .agent/runtime/checkpoint-2-manifest.json \
-            --changed-path settings.gradle.kts \
-            --changed-path build.gradle.kts \
-            --changed-path gradle.properties \
-            --changed-path app/build.gradle.kts \
-            --changed-path app/src/main/AndroidManifest.xml \
-            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContract.java \
-            --changed-path app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/MainActivity.java \
-            --changed-path app/src/test/java/com/melsuhaimi/sleepapp/bootstrap/CheckpointContractTest.java \
-            --changed-path .agent/verification/verify_apk.py \
-            --changed-path .github/workflows/android-apk.yml
+            --output .agent/runtime/android-build-manifest.json \
+            "${args[@]}"
           python3 .agent/controller.py \
-            --verify-manifest .agent/runtime/checkpoint-2-manifest.json
+            --verify-manifest .agent/runtime/android-build-manifest.json
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -117,7 +113,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager "platforms;android-37" "build-tools;36.0.0"
           echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Run unit tests
@@ -125,6 +121,12 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew test -PbuildCommit="${{ steps.candidate.outputs.sha }}" --stacktrace
+
+      - name: Run Android lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew lint -PbuildCommit="${{ steps.candidate.outputs.sha }}" --stacktrace
 
       - name: Assemble debug APK
         shell: bash
@@ -145,10 +147,10 @@ jobs:
       - name: Upload verified APK evidence
         uses: actions/upload-artifact@v7
         with:
-          name: checkpoint-2-apk-${{ steps.candidate.outputs.sha }}
+          name: p1-build-skeleton-${{ steps.candidate.outputs.sha }}
           path: |
             app/build/outputs/apk/debug/app-debug.apk
-            .agent/runtime/checkpoint-2-manifest.json
+            .agent/runtime/android-build-manifest.json
             .agent/runtime/apk-verification.json
           if-no-files-found: error
           retention-days: 14
@@ -184,15 +186,15 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ steps.candidate.outputs.sha }}"
 
-      - name: Bootstrap Checkpoint 2 task
+      - name: Bootstrap Android task
         shell: bash
         run: |
           set -euo pipefail
           python3 .agent/controller.py \
             --task "$CHECKPOINT_TASK" \
-            --output .agent/runtime/checkpoint-2-negative-manifest.json
+            --output .agent/runtime/android-build-negative-manifest.json
           python3 .agent/controller.py \
-            --verify-manifest .agent/runtime/checkpoint-2-negative-manifest.json
+            --verify-manifest .agent/runtime/android-build-negative-manifest.json
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -229,7 +231,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager "platforms;android-37" "build-tools;36.0.0"
 
       - name: Inject deliberate compile failure
         shell: bash
@@ -279,10 +281,10 @@ jobs:
       - name: Upload negative-control evidence
         uses: actions/upload-artifact@v7
         with:
-          name: checkpoint-2-negative-control-${{ steps.candidate.outputs.sha }}
+          name: p1-build-skeleton-negative-control-${{ steps.candidate.outputs.sha }}
           path: |
             negative-build.log
-            .agent/runtime/checkpoint-2-negative-manifest.json
+            .agent/runtime/android-build-negative-manifest.json
             .agent/runtime/negative-control.json
           if-no-files-found: error
           retention-days: 14
