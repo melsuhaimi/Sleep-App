@@ -29,6 +29,12 @@
       "-PbuildCommit={commit}",
       "--stacktrace"
     ],
+    "android-lint": [
+      "gradle",
+      "lint",
+      "-PbuildCommit={commit}",
+      "--stacktrace"
+    ],
     "android-assemble-debug": [
       "gradle",
       "assembleDebug",
