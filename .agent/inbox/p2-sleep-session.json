@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "task_id": "p2-sleep-session",
+  "objective": "Implement only P2 — Sleep session: Plan → Begin Sleep → Wake → Journal using manual anchors.",
+  "acceptance": [
+    "The SLEEP top-level route is a real P2 feature rather than the P1 foundation placeholder.",
+    "The sleep plan reads and can persist the existing DataStore sleep target without introducing a second settings store.",
+    "Begin Sleep persists exactly one active manual sleep-session start anchor in Room and prevents a second concurrent active session.",
+    "An active manual session enters a quiet Sleep Mode with the normal bottom navigation hidden and can be restored from persisted Room state after process recreation.",
+    "Manual wake records an end anchor and transitions the session to WAKE_PENDING without implementing P3 estimation or P6 morning finalization.",
+    "An accidental active session can transition to ABORTED and aborted sessions are excluded from Journal history.",
+    "JOURNAL is a real P2 feature that shows persisted ended non-aborted manual session windows and useful loading, empty, and error states.",
+    "Pure Kotlin sleep-session transition tests cover begin, wake, abort, invalid transition, and invalid time-order behavior.",
+    "No Sleep API, Activity Recognition permission, sleep resolver/confidence, progression, expedition, morning confirmation, or morning reveal behavior is added in P2."
+  ],
+  "allowed_scope": [
+    "app/**"
+  ],
+  "forbidden_scope": [
+    ".agent/**",
+    ".github/**",
+    "AGENTS.md",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "gradle.properties"
+  ],
+  "required_verification": [
+    "harness-unit-tests",
+    "android-unit-tests",
+    "android-lint",
+    "android-assemble-debug"
+  ],
+  "context_paths": [
+    "app/build.gradle.kts",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/app/App.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/navigation/AppRoute.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/navigation/NavigationState.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/ui/components/SleepScaffold.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/data/persistence/PersistenceEntities.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/data/persistence/SleepDatabase.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/core/di/PersistenceModule.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/data/settings/AppSettings.kt",
+    "app/src/main/java/com/melsuhaimi/sleepapp/bootstrap/data/settings/SettingsRepository.kt"
+  ],
+  "expected_base_commit": "698eb13749a3a505aacc11eba4b466c6f5f9a581"
+}
