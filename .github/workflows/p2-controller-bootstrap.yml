@@ -1,0 +1,172 @@
+name: P2 Controller Bootstrap
+
+on:
+  push:
+    branches:
+      - "agent/p2-sleep-session"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p2-controller-bootstrap
+  cancel-in-progress: true
+
+env:
+  BASE_SHA: "698eb13749a3a505aacc11eba4b466c6f5f9a581"
+  GRADLE_VERSION: "9.6.1"
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout staged controller input
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Preserve external task and proposal source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .agent/inbox/p2-sleep-session.json "$RUNNER_TEMP/p2-task.json"
+          mkdir -p "$RUNNER_TEMP/p2-source"
+          tar -xzf .agent/inbox/p2-source.tar.gz -C "$RUNNER_TEMP/p2-source"
+          test -f "$RUNNER_TEMP/p2-source/app/build.gradle.kts"
+
+      - name: Reset to exact known-good P1 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: "14742923"
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Bootstrap and re-verify P2 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$RUNNER_TEMP/p2-task.json" \
+            --output "$RUNNER_TEMP/p2-manifest.json"
+          python3 .agent/controller.py \
+            --verify-manifest "$RUNNER_TEMP/p2-manifest.json"
+
+      - name: Build manifest-bound P2 proposal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          manifest = json.loads((runner_temp / "p2-manifest.json").read_text(encoding="utf-8"))
+          source_root = runner_temp / "p2-source"
+          paths = sorted(
+              path.relative_to(source_root).as_posix()
+              for path in (source_root / "app").rglob("*")
+              if path.is_file()
+          )
+          edits = [
+              {
+                  "path": path,
+                  "content": (source_root / path).read_text(encoding="utf-8"),
+              }
+              for path in paths
+          ]
+          proposal = {
+              "schema_version": 1,
+              "run_id": manifest["run_id"],
+              "manifest_commit": manifest["repo"]["commit"],
+              "status": "CANDIDATE",
+              "summary": "Implement only P2 manual sleep-session flow from plan through persisted wake anchors and Journal.",
+              "assumptions": [],
+              "unknowns": [],
+              "files_to_modify": paths,
+              "verification_required": manifest["task"]["required_verification"],
+              "edits": edits,
+          }
+          (runner_temp / "p2-proposal.json").write_text(
+              json.dumps(proposal, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Apply P2 only through deterministic controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .agent/controller.py \
+            --task "$RUNNER_TEMP/p2-task.json" \
+            --proposal "$RUNNER_TEMP/p2-proposal.json" \
+            --result "$RUNNER_TEMP/p2-result.json" \
+            --evidence "$RUNNER_TEMP/p2-evidence.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          evidence = json.loads((runner_temp / "p2-evidence.json").read_text(encoding="utf-8"))
+          assert evidence["status"] == "VERIFIED_CANDIDATE", evidence
+          assert evidence["manifest_commit"] == os.environ["BASE_SHA"], evidence
+          assert all(item["returncode"] == 0 for item in evidence["verification"]), evidence
+          PY
+
+      - name: Publish clean P2 candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "sleep-app-controller"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "complete P2 sleep session"
+          candidate="$(git rev-parse HEAD)"
+          [[ "$candidate" =~ ^[0-9a-f]{40}$ ]]
+          echo "candidate_sha=$candidate" >> "$GITHUB_ENV"
+          git push --force origin HEAD:refs/heads/agent/p2-sleep-session
+
+      - name: Preserve controller evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: p2-controller-evidence
+          path: |
+            ${{ runner.temp }}/p2-manifest.json
+            ${{ runner.temp }}/p2-proposal.json
+            ${{ runner.temp }}/p2-result.json
+            ${{ runner.temp }}/p2-evidence.json
+          if-no-files-found: error
+          retention-days: 14
