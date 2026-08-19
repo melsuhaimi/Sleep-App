@@ -108,12 +108,12 @@ jobs:
           chmod +x gradlew
           ./gradlew --version
 
-      - name: Install stable Android SDK components
+      - name: Install Android 17 SDK components
         shell: bash
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
           echo "$ANDROID_SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Run unit tests
@@ -226,12 +226,12 @@ jobs:
           test "$(sha256sum gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')" = "$GRADLE_WRAPPER_JAR_SHA256"
           chmod +x gradlew
 
-      - name: Install stable Android SDK components
+      - name: Install Android 17 SDK components
         shell: bash
         run: |
           set -euo pipefail
           command -v sdkmanager
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
 
       - name: Inject deliberate compile failure
         shell: bash
